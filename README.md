@@ -8,17 +8,17 @@
 
 ## The problem
 
-Khan Academy videos are dubbed into dozens of languages, but the English text Sal Khan writes on screen stays in English. Replacing it currently requires someone with a drawing tablet, handwriting patience, and about an hour per 5-minute video. For thousands of videos across 40+ languages, that's an impossible backlog.
+Khan Academy videos are dubbed into dozens of languages, but the English text Sal Khan writes on screen stays in English. Replacing it currently requires someone with a drawing tablet, handwriting patience, and about an hour per 5-minute video. For thousands of videos across 40+ languages, that's a huge backlog.
 
 ## The idea
 
-What if we could detect the text programmatically, translate it, and re-render it — at the same position, angle, and timing as the original — using AI and code instead of humans and tablets?
+What if we could detect the text programmatically, translate it, and re-render it - at the same position, angle, and timing as the original - using AI and code instead of humans and tablets?
 
 ## How it works
 
 The pipeline has three phases:
 
-**Phase 1: Backwards frame scanning.** We walk through the video frames in reverse. This is the key insight — seeing *complete* text first means OCR is reliable (no trying to read half-written words). We log when each text region disappears, stabilizes, and first appears.
+**Phase 1: Backwards frame scanning.** We walk through the video frames in reverse. This helps alot — seeing *complete* text first means OCR is reliable (no trying to read half-written words). We log when each text region disappears, stabilizes, and first appears.
 
 **Phase 2: Translation.** The detected English text is translated. This can use any translation API, or the [Translation Triangulation](https://olofpaulson.substack.com/) method (using existing approved translations in other languages as disambiguation context).
 
