@@ -1,132 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Khan Academy Video Text Re-Rendering — Proof of Concept</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#0d0d0d;color:#e0e0e0;font-family:'IBM Plex Sans',sans-serif;font-weight:300;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:2rem 1rem}
+  h1{font-size:1.4rem;font-weight:400;color:#fff;margin-bottom:0.3rem;letter-spacing:-0.01em}
+  .sub{font-size:0.85rem;color:#888;margin-bottom:1.5rem;max-width:640px;line-height:1.6}
+  .sub a{color:#81D4FA;text-decoration:none}
+  .sub a:hover{text-decoration:underline}
+  #board{position:relative;width:100%;max-width:900px;aspect-ratio:16/9;background:#1c1c1c;border-radius:8px;overflow:hidden;border:1px solid #333}
+  canvas{width:100%;height:100%;display:block}
+  #pill{position:absolute;top:10px;left:14px;font-size:11px;font-family:'IBM Plex Sans',monospace;color:rgba(255,255,255,0.5)}
+  #tm{position:absolute;bottom:8px;right:14px;font-size:11px;font-family:'IBM Plex Sans',monospace;color:rgba(255,255,255,0.3)}
+  .controls{margin-top:1rem;display:flex;gap:10px;flex-wrap:wrap;align-items:center;max-width:900px;width:100%}
+  button{padding:8px 20px;font-size:13px;font-family:'IBM Plex Sans',sans-serif;background:transparent;color:#e0e0e0;border:1px solid #555;border-radius:6px;cursor:pointer;transition:all 0.15s}
+  button:hover{background:#333;border-color:#888}
+  button:active{transform:scale(0.97)}
+  select{padding:6px 10px;font-size:13px;font-family:'IBM Plex Sans',sans-serif;border:1px solid #555;border-radius:6px;background:#1a1a1a;color:#e0e0e0}
+  #nfo{font-size:12px;color:#888}
+  #log{margin-top:0.75rem;font-family:'IBM Plex Sans',monospace;font-size:11px;color:#999;line-height:1.9;padding:10px 12px;background:#141414;border-radius:6px;max-height:180px;overflow-y:auto;max-width:900px;width:100%;border:1px solid #222}
+  .explainer{max-width:900px;width:100%;margin-top:2rem;padding:1.5rem;background:#141414;border-radius:8px;border:1px solid #222;font-size:0.85rem;line-height:1.7;color:#aaa}
+  .explainer h2{font-size:1rem;font-weight:500;color:#ccc;margin-bottom:0.5rem}
+  .explainer code{background:#222;padding:2px 6px;border-radius:3px;font-size:0.8rem;color:#81D4FA}
+  footer{margin-top:2rem;font-size:0.75rem;color:#555;text-align:center;padding-bottom:1rem}
+  footer a{color:#666;text-decoration:none}
+  footer a:hover{color:#999}
+</style>
+</head>
+<body>
 
-<link href="https://cdn.jsdelivr.net/npm/@fontsource/caveat@5.1.1/400.css" rel="stylesheet">
-<div style="padding: 1rem 0;">
-  <div id="board" style="position: relative; width: 100%; aspect-ratio: 16/9; background: #1c1c1c; border-radius: var(--border-radius-lg); overflow: hidden;">
-    <canvas id="cv" style="width: 100%; height: 100%; display: block;"></canvas>
-    <div id="pill" style="position: absolute; top: 10px; left: 14px; font-size: 11px; font-family: var(--font-mono); color: rgba(255,255,255,0.5);"></div>
-    <div id="tm" style="position: absolute; bottom: 8px; right: 14px; font-size: 11px; font-family: var(--font-mono); color: rgba(255,255,255,0.3);"></div>
-  </div>
-  <div style="margin-top: 1rem; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
-    <button id="go">Play demo</button>
-    <button id="rst">Reset</button>
-    <select id="tgt" style="padding: 6px 10px; font-size: 13px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); background: var(--color-background-primary); color: var(--color-text-primary);">
-      <option value="sv">Svenska</option>
-      <option value="bg">Bulgarian</option>
-      <option value="de">Deutsch</option>
-      <option value="es">Espanol</option>
-      <option value="fr">Francais</option>
-      <option value="lv">Latviesu</option>
-      <option value="tr">Turkce</option>
-      <option value="vi">Tieng Viet</option>
-    </select>
-    <div style="flex:1"></div>
-    <span id="nfo" style="font-size: 12px; color: var(--color-text-secondary);"></span>
-  </div>
-  <div id="log" style="margin-top: 0.75rem; font-family: var(--font-mono); font-size: 11px; color: var(--color-text-secondary); line-height: 1.9; padding: 10px 12px; background: var(--color-background-secondary); border-radius: var(--border-radius-md); max-height: 180px; overflow-y: auto;"></div>
+<h1>Khan Academy Video Text Re-Rendering</h1>
+<p class="sub">
+  Proof of concept: programmatic detection and replacement of on-screen English text
+  in Khan-style blackboard videos, enabling localization at scale.
+  Text appears at realistic angles — because Sal doesn't write in straight lines.
+  <a href="https://github.com/blueeyes08/Khan-Video-Text-ReRendering">GitHub repo</a>
+</p>
+
+<div id="board">
+  <canvas id="cv"></canvas>
+  <div id="pill"></div>
+  <div id="tm"></div>
 </div>
+
+<div class="controls">
+  <button id="go">Play demo</button>
+  <button id="rst">Reset</button>
+  <select id="tgt">
+    <option value="sv">Svenska</option>
+    <option value="bg">&#x411;&#x44A;&#x43B;&#x433;&#x430;&#x440;&#x441;&#x43A;&#x438;</option>
+    <option value="de">Deutsch</option>
+    <option value="es">Espa&#xF1;ol</option>
+    <option value="fr">Fran&#xE7;ais</option>
+    <option value="lv">Latvie&#x161;u</option>
+    <option value="tr">T&#xFC;rk&#xE7;e</option>
+    <option value="vi">Ti&#x1EBF;ng Vi&#x1EC7;t</option>
+  </select>
+  <div style="flex:1"></div>
+  <span id="nfo"></span>
+</div>
+
+<div id="log"></div>
+
+<div class="explainer">
+  <h2>How it works</h2>
+  <p>This demo simulates a three-phase pipeline for localizing Khan Academy video text:</p>
+  <p style="margin-top:0.5rem"><strong style="color:#ccc">Phase 1</strong> — Original video plays. Text appears on the blackboard at various angles, mimicking Sal Khan's handwriting style.</p>
+  <p style="margin-top:0.3rem"><strong style="color:#ccc">Phase 2</strong> — Frames are scanned <em>backwards</em> (seeing complete text first makes OCR reliable). Each text region is detected, timestamped, and translated.</p>
+  <p style="margin-top:0.3rem"><strong style="color:#ccc">Phase 3</strong> — A black overlay covers each English text region (diagonal reveal from top-left), and the translated text is written in at the <em>same angle</em> as the original.</p>
+  <p style="margin-top:0.8rem">The actual pipeline uses <code>OpenCV</code> + <code>Tesseract OCR</code> for detection, and <code>Remotion</code> (React for video) or <code>Python/PIL</code> for rendering. This is a concept demo — no video processing happens in the browser.</p>
+  <p style="margin-top:0.8rem">Combined with AI dubbing (voice clone or TTS), this could reduce per-video localization effort from ~1 hour to ~15 minutes of review.</p>
+</div>
+
+<footer>
+  Built by <a href="https://github.com/blueeyes08">Olof Paulson</a> — Khan Academy translation advocate since 2011
+</footer>
+
 <script>
 const T={
-  sv:{"King Louis XIV":"Kung Ludvig XIV","France":"Frankrike","1643 - 1715":"1643 - 1715","Absolute Monarchy":"Envalde","The Sun King":"Solkungen"},
-  bg:{"King Louis XIV":"\u041A\u0440\u0430\u043B \u041B\u0443\u0438 XIV","France":"\u0424\u0440\u0430\u043D\u0446\u0438\u044F","1643 - 1715":"1643 - 1715","Absolute Monarchy":"\u0410\u0431\u0441\u043E\u043B\u044E\u0442\u043D\u0430 \u043C\u043E\u043D\u0430\u0440\u0445\u0438\u044F","The Sun King":"\u041A\u0440\u0430\u043B\u044F\u0442 \u0421\u043B\u044A\u043D\u0446\u0435"},
-  de:{"King Louis XIV":"K\u00F6nig Ludwig XIV","France":"Frankreich","1643 - 1715":"1643 - 1715","Absolute Monarchy":"Absolute Monarchie","The Sun King":"Der Sonnenk\u00F6nig"},
-  es:{"King Louis XIV":"Rey Luis XIV","France":"Francia","1643 - 1715":"1643 - 1715","Absolute Monarchy":"Monarqu\u00EDa Absoluta","The Sun King":"El Rey Sol"},
+  sv:{"King Louis XIV":"Kung Ludvig XIV","France":"Frankrike","1643 - 1715":"1643 - 1715","Absolute Monarchy":"Envälde","The Sun King":"Solkungen"},
+  bg:{"King Louis XIV":"Крал Луи XIV","France":"Франция","1643 - 1715":"1643 - 1715","Absolute Monarchy":"Абсолютна монархия","The Sun King":"Кралят Слънце"},
+  de:{"King Louis XIV":"König Ludwig XIV","France":"Frankreich","1643 - 1715":"1643 - 1715","Absolute Monarchy":"Absolute Monarchie","The Sun King":"Der Sonnenkönig"},
+  es:{"King Louis XIV":"Rey Luis XIV","France":"Francia","1643 - 1715":"1643 - 1715","Absolute Monarchy":"Monarquía Absoluta","The Sun King":"El Rey Sol"},
   fr:{"King Louis XIV":"Roi Louis XIV","France":"France","1643 - 1715":"1643 - 1715","Absolute Monarchy":"Monarchie Absolue","The Sun King":"Le Roi Soleil"},
-  lv:{"King Louis XIV":"Karalis Ludvigs XIV","France":"Francija","1643 - 1715":"1643 - 1715","Absolute Monarchy":"Absol\u016Bt\u0101 monarh.","The Sun King":"Saules karalis"},
-  tr:{"King Louis XIV":"Kral Louis XIV","France":"Fransa","1643 - 1715":"1643 - 1715","Absolute Monarchy":"Mutlak Monar\u015Fi","The Sun King":"G\u00FCne\u015F Kral"},
-  vi:{"King Louis XIV":"Vua Louis XIV","France":"Ph\u00E1p","1643 - 1715":"1643 - 1715","Absolute Monarchy":"Qu\u00E2n ch\u1EE7 chuy\u00EAn ch\u1EBF","The Sun King":"Vua M\u1EB7t Tr\u1EDDi"}
+  lv:{"King Louis XIV":"Karalis Ludvigs XIV","France":"Francija","1643 - 1715":"1643 - 1715","Absolute Monarchy":"Absolūtā monarhija","The Sun King":"Saules karalis"},
+  tr:{"King Louis XIV":"Kral Louis XIV","France":"Fransa","1643 - 1715":"1643 - 1715","Absolute Monarchy":"Mutlak Monarşi","The Sun King":"Güneş Kral"},
+  vi:{"King Louis XIV":"Vua Louis XIV","France":"Pháp","1643 - 1715":"1643 - 1715","Absolute Monarchy":"Quân chủ chuyên chế","The Sun King":"Vua Mặt Trời"}
 };
+
+// Text regions with ANGLES (degrees) - 4 of 6 are angled
 const R=[
-  {id:"title", text:"King Louis XIV", x:0.05, y:0.18, sz:0.095, c:"#FFD54F", ws:0.3, we:4},
-  {id:"place", text:"France", x:0.05, y:0.42, sz:0.065, c:"#81D4FA", ws:5, we:7.5},
-  {id:"dates", text:"1643 - 1715", x:0.05, y:0.60, sz:0.055, c:"#CE93D8", ws:8.5, we:11},
-  {id:"system", text:"Absolute Monarchy", x:0.52, y:0.18, sz:0.065, c:"#A5D6A7", ws:12, we:16},
-  {id:"name", text:"The Sun King", x:0.52, y:0.42, sz:0.07, c:"#FFAB91", ws:17, we:20.5}
+  {text:"King Louis XIV",   x:0.05, y:0.20, sz:0.090, c:"#FFD54F", ws:0.3,  we:4,    angle:-3},
+  {text:"France",           x:0.06, y:0.42, sz:0.060, c:"#81D4FA", ws:5,    we:7.5,  angle:5},
+  {text:"1643 - 1715",      x:0.07, y:0.62, sz:0.050, c:"#CE93D8", ws:8.5,  we:11,   angle:-7},
+  {text:"Absolute Monarchy", x:0.52, y:0.20, sz:0.058, c:"#A5D6A7", ws:12,   we:16,   angle:4},
+  {text:"The Sun King",     x:0.53, y:0.44, sz:0.065, c:"#FFAB91", ws:17,   we:20.5, angle:0},
+  {text:"1643 - 1715",      x:0.54, y:0.64, sz:0.045, c:"#CE93D8", ws:21,   we:23.5, angle:-5}
 ];
-const cv=document.getElementById('cv'), cx=cv.getContext('2d');
-const logE=document.getElementById('log'), pillE=document.getElementById('pill');
-const tmE=document.getElementById('tm'), nfoE=document.getElementById('nfo');
+// Override: the 6th region repeats dates on right side at different angle
+T.sv["1643 - 1715"]="1643 - 1715";
+T.bg["1643 - 1715"]="1643 - 1715";
+T.de["1643 - 1715"]="1643 - 1715";
+T.es["1643 - 1715"]="1643 - 1715";
+T.fr["1643 - 1715"]="1643 - 1715";
+T.lv["1643 - 1715"]="1643 - 1715";
+T.tr["1643 - 1715"]="1643 - 1715";
+T.vi["1643 - 1715"]="1643 - 1715";
+
+const cv=document.getElementById('cv'),cx=cv.getContext('2d');
+const logE=document.getElementById('log'),pillE=document.getElementById('pill');
+const tmE=document.getElementById('tm'),nfoE=document.getElementById('nfo');
 let W,H,dpr,running=false,raf=null;
-function fit(){const r=cv.getBoundingClientRect();dpr=window.devicePixelRatio||1;W=r.width;H=r.height;cv.width=W*dpr;cv.height=H*dpr;cx.setTransform(dpr,0,0,dpr,0,0);}
-fit();window.addEventListener('resize',()=>{fit();if(!running)idle();});
+
+function fit(){
+  const r=cv.getBoundingClientRect();
+  dpr=window.devicePixelRatio||1;
+  W=r.width;H=r.height;
+  cv.width=W*dpr;cv.height=H*dpr;
+  cx.setTransform(dpr,0,0,dpr,0,0);
+}
+fit();
+window.addEventListener('resize',()=>{fit();if(!running)idle();});
+
 function lg(s){const d=document.createElement('div');d.textContent='> '+s;logE.appendChild(d);logE.scrollTop=1e6;}
 
 function board(){
   cx.fillStyle='#1c1c1c';cx.fillRect(0,0,W,H);
-  for(let i=0;i<50;i++){cx.fillStyle=`rgba(255,255,255,${Math.random()*0.013})`;cx.fillRect(Math.random()*W,Math.random()*H,Math.random()*2+0.5,Math.random()*2+0.5);}
+  for(let i=0;i<50;i++){
+    cx.fillStyle=`rgba(255,255,255,${Math.random()*0.013})`;
+    cx.fillRect(Math.random()*W,Math.random()*H,Math.random()*2+0.5,Math.random()*2+0.5);
+  }
 }
 
-function writeText(text,rx,ry,sz,col,progress){
+function writeText(text,rx,ry,sz,col,progress,angleDeg){
   if(progress<=0)return;
   const px=rx*W, py=ry*H, fs=sz*H;
   const n=Math.max(0,Math.floor(text.length*Math.min(progress,1)));
   if(n===0)return;
+  cx.save();
+  cx.translate(px,py);
+  cx.rotate(angleDeg * Math.PI/180);
   cx.font=`${fs}px Caveat, Georgia, serif`;
-  let xp=px;
+  let xp=0;
   for(let i=0;i<n;i++){
     const jx=Math.sin(i*7.3+rx*100)*1.0;
     const jy=Math.cos(i*5.1+ry*100)*0.7;
     cx.fillStyle=col;
-    cx.fillText(text[i],xp+jx,py+jy);
+    cx.fillText(text[i],xp+jx,jy);
     xp+=cx.measureText(text[i]).width;
   }
   if(progress<1){
-    cx.fillStyle=`${col}88`;
-    cx.fillRect(xp+2, py-fs*0.15, 2, fs*0.25);
+    cx.fillStyle=col+'88';
+    cx.fillRect(xp+2,-fs*0.15,2,fs*0.25);
   }
+  cx.restore();
 }
 
-function diagClip(rx,ry,tw,th,progress){
-  const px=rx*W-10, py=ry*H-th-6;
-  const pw=tw+20, ph=th+16;
-  const diag=Math.sqrt(pw*pw+ph*ph);
+function getTextWidth(text,sz){
+  const fs=sz*H;
+  cx.font=`${fs}px Caveat, Georgia, serif`;
+  return cx.measureText(text).width;
+}
+
+function blackBox(r,text,progress){
+  const px=r.x*W, py=r.y*H, fs=r.sz*H;
+  const tw=getTextWidth(text,r.sz);
+  const pad=12;
+  const bx=-pad, by=-fs-pad/2, bw=tw+pad*2, bh=fs+pad*1.5;
+  const diag=Math.sqrt(bw*bw+bh*bh);
   const rev=diag*Math.min(progress,1);
+
   cx.save();
+  cx.translate(px,py);
+  cx.rotate(r.angle*Math.PI/180);
   cx.beginPath();
-  cx.moveTo(px,py);
-  if(rev<=pw){
-    cx.lineTo(px+rev,py);
-    cx.lineTo(px,py+Math.min(rev,ph));
+  cx.moveTo(bx,by);
+  if(rev<=bw){
+    cx.lineTo(bx+rev,by);
+    cx.lineTo(bx,by+Math.min(rev,bh));
   } else {
-    cx.lineTo(px+pw,py);
-    cx.lineTo(px+pw,py+Math.min(rev-pw,ph));
-    if(rev-pw>=ph){cx.lineTo(px+Math.max(0,pw-(rev-pw-ph)),py+ph);}
-    else{cx.lineTo(px,py+ph);}
-    cx.lineTo(px,py+Math.min(rev,ph));
+    cx.lineTo(bx+bw,by);
+    cx.lineTo(bx+bw,by+Math.min(rev-bw,bh));
+    if(rev-bw>=bh){cx.lineTo(bx+Math.max(0,bw-(rev-bw-bh)),by+bh);}
+    else{cx.lineTo(bx,by+bh);}
+    cx.lineTo(bx,by+Math.min(rev,bh));
   }
   cx.closePath();
   cx.clip();
   cx.fillStyle='#1c1c1c';
-  cx.fillRect(px,py,pw,ph);
+  cx.fillRect(bx-2,by-2,bw+4,bh+4);
   cx.restore();
-}
-
-function blackBox(r,text,progress){
-  const fs=r.sz*H;
-  cx.font=`${fs}px Caveat, Georgia, serif`;
-  const tw=cx.measureText(text).width;
-  diagClip(r.x, r.y, tw, fs*1.1, progress);
 }
 
 function scanBox(r,alpha){
   const px=r.x*W, py=r.y*H, fs=r.sz*H;
-  cx.font=`${fs}px Caveat, Georgia, serif`;
-  const tw=cx.measureText(r.text).width;
+  const tw=getTextWidth(r.text,r.sz);
   cx.save();
+  cx.translate(px,py);
+  cx.rotate(r.angle*Math.PI/180);
   cx.strokeStyle=`rgba(40,220,120,${alpha})`;
   cx.lineWidth=1.5;cx.setLineDash([6,4]);
-  cx.strokeRect(px-8,py-fs-4,tw+16,fs+14);
+  cx.strokeRect(-8,-fs-4,tw+16,fs+14);
   cx.setLineDash([]);
   cx.fillStyle=`rgba(40,220,120,${alpha*0.8})`;
   cx.font='11px monospace';
-  cx.fillText('OCR: "'+r.text+'"',px-8,py-fs-18);
+  cx.fillText('OCR: "'+r.text+'"  angle: '+r.angle+'\u00B0',-8,-fs-16);
   cx.restore();
 }
 
-function drawAll(excludeIdx){
-  for(let i=0;i<R.length;i++){
-    if(i===excludeIdx)continue;
-    writeText(R[i].text,R[i].x,R[i].y,R[i].sz,R[i].c,1);
-  }
+function drawAll(){
+  for(const r of R) writeText(r.text,r.x,r.y,r.sz,r.c,1,r.angle);
 }
 
 function idle(){
@@ -148,33 +236,34 @@ function run(){
   const writeEnd=R[R.length-1].we;
   const p1Dur=writeEnd+1;
   let t0=performance.now();
-  lg('Phase 1: Playing original Khan video (English)...');
-  pillE.textContent='Phase 1: original video';
+  lg('Phase 1: Original Khan video playing (English)...');
+  pillE.textContent='Phase 1 \u2014 original video';
 
   function p1(){
     const el=(performance.now()-t0)/1000;
     board();
     for(const r of R){
       const rp=(el-r.ws)/(r.we-r.ws);
-      if(rp>0)writeText(r.text,r.x,r.y,r.sz,r.c,rp);
+      if(rp>0) writeText(r.text,r.x,r.y,r.sz,r.c,rp,r.angle);
     }
     tmE.textContent=`${Math.min(el,p1Dur).toFixed(1)}s`;
-    if(el<p1Dur)raf=requestAnimationFrame(p1);
-    else{lg('All English text written.');p2();}
+    if(el<p1Dur) raf=requestAnimationFrame(p1);
+    else{lg('All English text written.');lg('');p2();}
   }
   raf=requestAnimationFrame(p1);
 
   function p2(){
-    lg('');lg('Phase 2: Scanning frames BACKWARDS...');
-    pillE.textContent='Phase 2: backwards scan + OCR';
+    lg('Phase 2: Scanning frames BACKWARDS for text regions...');
+    pillE.textContent='Phase 2 \u2014 backwards scan + OCR';
     let idx=R.length-1;
     function next(){
-      if(idx<0){p3();return;}
+      if(idx<0){lg('');p3();return;}
       const r=R[idx];
-      board();drawAll(-1);
+      board();drawAll();
       scanBox(r,0.9);
-      lg(`Found: "${r.text}" [${r.ws.toFixed(1)}s-${r.we.toFixed(1)}s]`);
-      lg(`  -> ${lang.toUpperCase()}: "${tr[r.text]||r.text}"`);
+      const translated=tr[r.text]||r.text;
+      lg(`Found: "${r.text}" [${r.ws.toFixed(1)}s\u2013${r.we.toFixed(1)}s] angle=${r.angle}\u00B0`);
+      lg(`  \u2192 ${lang.toUpperCase()}: "${translated}"`);
       tmE.textContent=`scan t=${r.we.toFixed(1)}s`;
       idx--;
       setTimeout(next,1000);
@@ -183,11 +272,11 @@ function run(){
   }
 
   function p3(){
-    lg('');lg('Phase 3: Overlay + localized handwriting...');
-    pillE.textContent='Phase 3: diagonal overlay + handwriting';
-    let ri=0,prog=0;
+    lg('Phase 3: Overlaying localized text (diagonal reveal, matching angles)...');
+    pillE.textContent='Phase 3 \u2014 overlay + localized handwriting';
+    let ri=0, prog=0;
     const spd=0.008;
-    let done=new Array(R.length).fill(false);
+    const done=new Array(R.length).fill(false);
 
     function tick(){
       if(ri>=R.length){fin();return;}
@@ -197,26 +286,20 @@ function run(){
       for(let i=0;i<R.length;i++){
         if(done[i]){
           blackBox(R[i],R[i].text,1);
-          writeText(tr[R[i].text]||R[i].text,R[i].x,R[i].y,R[i].sz,R[i].c,1);
+          writeText(tr[R[i].text]||R[i].text,R[i].x,R[i].y,R[i].sz,R[i].c,1,R[i].angle);
         } else if(i!==ri){
-          writeText(R[i].text,R[i].x,R[i].y,R[i].sz,R[i].c,1);
+          writeText(R[i].text,R[i].x,R[i].y,R[i].sz,R[i].c,1,R[i].angle);
         }
       }
       blackBox(r,r.text,Math.min(prog*1.6,1));
       if(prog>0.2){
-        const tp=(prog-0.2)/0.8;
-        writeText(translated,r.x,r.y,r.sz,r.c,tp);
+        writeText(translated,r.x,r.y,r.sz,r.c,(prog-0.2)/0.8,r.angle);
       }
-      tmE.textContent=`"${r.text}" -> "${translated}"`;
+      tmE.textContent=`"${r.text}" \u2192 "${translated}" (${r.angle}\u00B0)`;
       nfoE.textContent=`Region ${ri+1} of ${R.length}`;
       prog+=spd;
-      if(prog>=1.3){
-        done[ri]=true;
-        ri++;prog=0;
-        setTimeout(()=>{raf=requestAnimationFrame(tick);},300);
-      } else {
-        raf=requestAnimationFrame(tick);
-      }
+      if(prog>=1.3){done[ri]=true;ri++;prog=0;setTimeout(()=>{raf=requestAnimationFrame(tick);},300);}
+      else{raf=requestAnimationFrame(tick);}
     }
     raf=requestAnimationFrame(tick);
   }
@@ -225,11 +308,15 @@ function run(){
     running=false;
     pillE.textContent='Complete';
     nfoE.textContent='All regions localized';
-    lg('');lg('Pipeline complete. Ready for audio dubbing.');
+    lg('');
+    lg('Pipeline complete. Video ready for audio dubbing pass.');
     lg(`${R.length} text regions localized to ${lang.toUpperCase()}`);
+    lg('Angles preserved: '+R.map(r=>r.angle+'\u00B0').join(', '));
   }
 }
 
 document.getElementById('go').onclick=run;
 document.getElementById('rst').onclick=()=>{if(raf)cancelAnimationFrame(raf);running=false;logE.innerHTML='';nfoE.textContent='';idle();};
 </script>
+</body>
+</html>
